@@ -39,7 +39,7 @@ Please make sure to update tests as appropriate.
 
 ## Tasks
 
-Sun: Generator Architecture\\
-Dhruvin: Image Manipulation (scikit-image)
-Mei: Wasserstan GAN - Gradient Penalty (https://arxiv.org/pdf/1704.00028.pdf)
-Julien: Anything challenging left
+- Sun: Generator Architecture
+- Dhruvin: Image Manipulation (scikit-image)
+- Mei: Wasserstan GAN - Gradient Penalty (https://arxiv.org/pdf/1704.00028.pdf)
+- Julien: Anything challenging left
