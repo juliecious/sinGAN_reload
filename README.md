@@ -41,5 +41,5 @@ Please make sure to update tests as appropriate.
 
 - Sun: Generator Architecture
 - Dhruvin: Image Manipulation (scikit-image)
-- Mei: Wasserstan GAN - Gradient Penalty (https://arxiv.org/pdf/1704.00028.pdf)
+- Mei: Wasserstein GAN - Gradient Penalty (https://arxiv.org/pdf/1704.00028.pdf)
 - Julien: Anything challenging left
