@@ -1,17 +1,16 @@
 import torch
 from torch import autograd
-
 from torch.autograd import Variable
 
 
 def move_to_gpu_if_available(t):
     if torch.cuda.is_available():
         return t.to(torch.device('cuda'))
-    else: # use CPU
+    else:  # use CPU
         return t.to(torch.device('cpu'))
 
-def calculate_gradient_penalty(real_images, fake_images, discriminator, lambda_term=10):
 
+def calculate_gradient_penalty(real_images, fake_images, discriminator, lambda_term=10):
     # generate a random number epsilon from a uniform distribution U[0,1]
     epsilon = torch.rand(1, 1).expand(real_images.size())
     epsilon = move_to_gpu_if_available(epsilon)
