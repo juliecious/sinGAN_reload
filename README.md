@@ -11,12 +11,10 @@ sinGAN reload is a PyTorch reimplementation of the paper "SinGAN: Learning a Gen
 We intend to re-implement the paint-to-image task from SinGan, and extend the application to digital pathology use case. Furthermore, we aim to provide a user-friendly frontend platform for the above mentioned image manipulation tasks. 
 
 ## Installation
-TODO
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
-
+Run the following command to install dependencies.
 ```bash
-pip install foobar
+pip install -r requirements.txt
 ```
 
 ## Usage

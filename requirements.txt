@@ -3,5 +3,5 @@ scikit-image
 scikit-learn
 scipy
 numpy
-torch
-torchvision
+torch==1.8.0+cpu
+torchvision==0.9.0+cpu
