@@ -23,6 +23,7 @@ class Generator(nn.Module):
             ConvBlock(kernels, 3, nn.Tanh()),
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
+        self.zero_pad = nn.ZeroPad2d(5)
 
     def forward(self, noise, img):
         """Forward pass
@@ -34,7 +35,7 @@ class Generator(nn.Module):
         Returns:
             tensor: generated image
         """
-        input = noise + img
+        input = self.zero_pad(noise) + self.zero_pad(img)
         residuals = self.net(input)
         result = img + residuals
 

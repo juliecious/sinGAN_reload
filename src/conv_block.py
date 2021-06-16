@@ -12,9 +12,11 @@ class ConvBlock(nn.Module):
         """
         super(ConvBlock, self).__init__()
         kernel = (3, 3)
+        padding = 0
+        padding_mode = 'zeros'
 
         self.net = nn.Sequential(
-            nn.Conv2d(input, output, kernel),
+            nn.Conv2d(input, output, kernel, padding=padding, padding_mode=padding_mode),
             nn.BatchNorm2d(output),
             act_fn,
         )
