@@ -9,9 +9,10 @@ import util
 
 # Init variables
 device = torch.device('cuda:0')
-lr=5e-4
-iters=2000
-batch_size = 64
+lr = 5e-4
+iters = 1#2000
+batch_size = 1
+interpolate_mode = 'nearest'
 
 # Import picture
 img = io.imread('../assets/test.jpg')
@@ -37,12 +38,12 @@ def get_pyr_shapes(N, r, start_shape=(25, 25)):
 
     # Init variables
     shape = torch.tensor(start_shape)
-    shapes = [shape]
+    shapes = []
 
     # For every scale n, create the noise map with right scale
     for n in range(N):
-        shape = shape*r
         shapes.append(tuple(shape.int().tolist()))
+        shape = shape*r
     return shapes
 
 def noise(N, r, batch_size=1, shape=(25, 25)):
@@ -81,7 +82,7 @@ def sample_imgs(high, r, batch_size, shape=(25, 25)):
 
     # Go through all scales and create image
     for n in range(high):
-        upsample = torch.nn.Upsample(size=tuple(z[n].shape[2:]), mode='nearest')
+        upsample = torch.nn.Upsample(size=tuple(z[n].shape[2:]))
 
         x_n = upsample(x_n)
         x_n = G[n](z[n], x_n)
@@ -89,14 +90,37 @@ def sample_imgs(high, r, batch_size, shape=(25, 25)):
 
     return x
 
-def train(N, r, iters, batch_size):
+def img_pyr(shapes, start_img):
+    pyr = []
+    img = start_img.clone().unsqueeze(0)
+
+    for size in reversed(shapes):
+        img = torch.nn.functional.interpolate(img, size=size, mode=interpolate_mode)
+        pyr.append(img)
+
+    return pyr[::-1]
+
+def get_real_imgs(pyr, n, batch_size):
+    return pyr[n-1].repeat(batch_size, 1, 1, 1)
+
+
+def train(N, r, iters, batch_size, img):
+    # Get image pyramid scales
+    shapes = get_pyr_shapes(N, r)
+
+    # Create image pyramid
+    pyr = img_pyr(shapes, img)
+
     # Train each scale one after the other
-    for n in range(N):
+    for n in range(1, N+1):
         for i in range(iters):
             # Sample only for the current scale
-            fake_imgs = sample_imgs(n, r, batch_size)
+            fake_imgs = sample_imgs(n, r, batch_size)[-1]
 
-            #
+            # Get several copies of real image
+            real_imgs = get_real_imgs(pyr, n, batch_size)
+
+            #util.calculate_gradient_penalty(real_imgs, fake_imgs, d, device, lam=10)
 
 
 
@@ -114,4 +138,4 @@ def train(N, r, iters, batch_size):
 
 #plot_pyr(imgs)
 
-train(N, r, iters, batch_size)
+train(N, r, iters, batch_size, img)
