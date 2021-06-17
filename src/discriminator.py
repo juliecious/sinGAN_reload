@@ -5,16 +5,14 @@ from conv_block import ConvBlock
 class Discriminator(nn.Module):
     """Single Discriminator for one scale."""
 
-    def __init__(self, kernels, lr):
+    def __init__(self, lr, betas=(0.5, 0.999)):
         """Constructor
 
         Args:
-            kernels (int): Number of kernels per block
             lr (float): Learning rate
+            betas (tuple): Betas default to (0.5, 0.999)
         """
         super(Discriminator, self).__init__()
-        betas = [0.5, 0.999]
-        kernel = (3,3)
 
         self.net = nn.Sequential(
             ConvBlock(3, kernels),

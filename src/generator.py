@@ -8,14 +8,14 @@ class Generator(nn.Module):
     whose output is a residual image that is added back to the input image
     """
 
-    def __init__(self, lr):
+    def __init__(self, lr, betas=(0.5, 0.999)):
         """Constructor
 
         Args:
             lr (float): Learning rate
+            betas (tuple): Betas default to (0.5, 0.999)
         """
         super(Generator, self).__init__()
-        betas = [0.5, 0.999]
 
         """
         According to the paper, we start with 32 kernels per block at the coarest scale
@@ -30,6 +30,7 @@ class Generator(nn.Module):
             ConvBlock(input_dim=4, output_dim=3, kernel_size=3, act_fn=nn.Tanh())
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[1000, 2000], gamma=0.1)
         self.zero_pad = nn.ZeroPad2d(5)
 
     def forward(self, noise, img):
