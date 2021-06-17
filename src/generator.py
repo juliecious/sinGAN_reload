@@ -3,24 +3,31 @@ import torch.nn as nn
 from conv_block import ConvBlock
 
 class Generator(nn.Module):
-    """Single Generator for one scale."""
+    """
+    Define single generator for one scale. It consists of 5 conv layers
+    whose output is a residual image that is added back to the input image
+    """
 
-    def __init__(self, kernels, lr):
+    def __init__(self, lr):
         """Constructor
 
         Args:
-            kernels (int): Number of kernels per block
             lr (float): Learning rate
         """
         super(Generator, self).__init__()
         betas = [0.5, 0.999]
 
+        """
+        According to the paper, we start with 32 kernels per block at the coarest scale
+        and increase this number by a factor of 2 every 4 scale
+        """
+
         self.net = nn.Sequential(
-            ConvBlock(3, kernels),
-            ConvBlock(kernels, kernels),
-            ConvBlock(kernels, kernels),
-            ConvBlock(kernels, kernels),
-            ConvBlock(kernels, 3, nn.Tanh()),
+            ConvBlock(input_dim=3, output_dim=32, kernel_size=3),
+            ConvBlock(input_dim=32, output_dim=16, kernel_size=3),
+            ConvBlock(input_dim=16, output_dim=8, kernel_size=3),
+            ConvBlock(input_dim=8, output_dim=4, kernel_size=3),
+            ConvBlock(input_dim=4, output_dim=3, kernel_size=3, act_fn=nn.Tanh())
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
         self.zero_pad = nn.ZeroPad2d(5)
