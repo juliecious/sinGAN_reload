@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 from skimage import io
 import numpy as np
-from generator import Generator
-from discriminator import Discriminator
+from architecture import Generator, Discriminator
 import matplotlib.pyplot as plt
 import util
 
