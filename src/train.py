@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import util
 
 # Init variables
-device = torch.device('cuda:0')
+device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 lr = 5e-4
 iters = 1#2000
 batch_size = 1

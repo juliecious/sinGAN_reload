@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, kernel_size, stride=1, act_fn=nn.LeakyReLU(0.2, inplace=False)):
+    def __init__(self, input_dim, output_dim, kernel_size, act_fn=nn.LeakyReLU(0.2, inplace=False)):
         """Constructor
 
         Args:
@@ -16,7 +16,7 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
 
         self.net = nn.Sequential(
-            nn.Conv2d(input_dim, output_dim, kernel_size, stride=stride),
+            nn.Conv2d(input_dim, output_dim, kernel_size),
             nn.BatchNorm2d(output_dim),
             act_fn,
         )
@@ -30,7 +30,7 @@ class Generator(nn.Module):
     whose output is a residual image that is added back to the input image.
     The generator's last conv-block uses Tanh instead of ReLU.
     """
-    def __init__(self, lr=5e-4, betas=(0.5, 0.999)):
+    def __init__(self, output_dim=32, lr=5e-4, betas=(0.5, 0.999), milestones=[1600], gamma=0.1):
         """Constructor
 
         Args:
@@ -43,16 +43,15 @@ class Generator(nn.Module):
         According to the paper, we start with 32 kernels per block at the coarest scale
         and increase this number by a factor of 2 every 4 scale
         """
-        output_dim = 32
         self.net = nn.Sequential(
             ConvBlock(3, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
-            ConvBlock(output_dim, output_dim, 3, act_fn=nn.Tanh())
+            ConvBlock(output_dim, 3, 3, act_fn=nn.Tanh())
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
-        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[1600], gamma=0.1)
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=milestones, gamma=gamma)
         self.zero_pad = nn.ZeroPad2d(5)
 
     def forward(self, noise, img):
@@ -75,7 +74,7 @@ class Discriminator(nn.Module):
     normalization nor activation.
     """
 
-    def __init__(self, lr=5e-4, betas=(0.5, 0.999)):
+    def __init__(self, output_dim=32, lr=5e-4, betas=(0.5, 0.999), milestones=[1600], gamma=0.1):
         """Constructor
 
         Args:
@@ -83,8 +82,6 @@ class Discriminator(nn.Module):
             betas (tuple): Betas default to (0.5, 0.999)
         """
         super(Discriminator, self).__init__()
-
-        output_dim = 32
         self.net = nn.Sequential(
             ConvBlock(3, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
@@ -93,7 +90,7 @@ class Discriminator(nn.Module):
             ConvBlock(output_dim, 1, 3)
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
-        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[1600], gamma=0.1)
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=milestones, gamma=gamma)
 
     def forward(self, img):
         """Forward pass
