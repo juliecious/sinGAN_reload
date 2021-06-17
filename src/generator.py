@@ -21,13 +21,13 @@ class Generator(nn.Module):
         According to the paper, we start with 32 kernels per block at the coarest scale
         and increase this number by a factor of 2 every 4 scale
         """
-
+        output_dim = 32
         self.net = nn.Sequential(
-            ConvBlock(input_dim=3, output_dim=32, kernel_size=3),
-            ConvBlock(input_dim=32, output_dim=16, kernel_size=3),
-            ConvBlock(input_dim=16, output_dim=8, kernel_size=3),
-            ConvBlock(input_dim=8, output_dim=4, kernel_size=3),
-            ConvBlock(input_dim=4, output_dim=3, kernel_size=3, act_fn=nn.Tanh())
+            ConvBlock(3, output_dim, 3),
+            ConvBlock(output_dim, output_dim, 3),
+            ConvBlock(output_dim, output_dim, 3),
+            ConvBlock(output_dim, output_dim, 3),
+            ConvBlock(output_dim, output_dim, 3, act_fn=nn.Tanh())
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[1000, 2000], gamma=0.1)

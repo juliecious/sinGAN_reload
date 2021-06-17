@@ -14,27 +14,20 @@ class Discriminator(nn.Module):
         """
         super(Discriminator, self).__init__()
 
+        output_dim = 32
         self.net = nn.Sequential(
-            ConvBlock(3, kernels),
-            ConvBlock(kernels, kernels),
-            ConvBlock(kernels, kernels),
-            ConvBlock(kernels, kernels),
-            nn.Conv2d(kernels, 3, kernel),
+            ConvBlock(3, output_dim, 3),
+            ConvBlock(output_dim, output_dim, 3),
+            ConvBlock(output_dim, output_dim, 3),
+            ConvBlock(output_dim, output_dim, 3),
+            ConvBlock(output_dim, 1, 3)
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[1000, 2000], gamma=0.1)
 
-    def forward(self, noise, img):
+    def forward(self, img):
         """Forward pass
 
-        Args:
-            noise (tensor): Noise map
-            img (tensor): Upsampled image
-
-        Returns:
-            tensor: generated image
+        Return generated image
         """
-        input = noise + img
-        residuals = self.net(input)
-        result = img + residuals
-
-        return result
+        return self.net(img)
