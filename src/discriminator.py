@@ -5,7 +5,7 @@ from conv_block import ConvBlock
 class Discriminator(nn.Module):
     """Single Discriminator for one scale."""
 
-    def __init__(self, lr, betas=(0.5, 0.999)):
+    def __init__(self, lr=5e-4, betas=(0.5, 0.999)):
         """Constructor
 
         Args:
@@ -23,7 +23,7 @@ class Discriminator(nn.Module):
             ConvBlock(output_dim, 1, 3)
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
-        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[1000, 2000], gamma=0.1)
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[1600], gamma=0.1)
 
     def forward(self, img):
         """Forward pass
