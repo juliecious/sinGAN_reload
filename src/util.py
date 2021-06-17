@@ -6,7 +6,7 @@ from torch.autograd import Variable
 
 def calculate_reconstruction_loss(recon_image, real_image):
     """
-    Calcuate root mean squared error bewteen reconstructed image and the real image in each layer
+    Calcuate root mean squared error between reconstructed image and the real image in each layer
     """
     return torch.sqrt(nn.MSELoss(recon_image, real_image))
 

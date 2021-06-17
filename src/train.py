@@ -9,15 +9,19 @@ import util
 # Init variables
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 lr = 5e-4
-iters = 1#2000
+iters = 1 #2000
 batch_size = 1
 interpolate_mode = 'nearest'
 
 # Import picture
-img = io.imread('../assets/test.jpg')
-img = torch.as_tensor(img).to(device).permute(2, 0, 1)
+img_file = 'https://raw.githubusercontent.com/tamarott/SinGAN/master/Input/Images/balloons.png'
+img = io.imread(img_file)
+assert img.shape[-1] == 3, 'Wrong image dimension, check again!'
+
+# normalization
+img = torch.as_tensor(img/255.0, device=device).permute(2, 0, 1)
 H, W = img.shape[1:]
-assert H == W, 'Image has to be quadratic!'
+img = ((img - 0.5) * 2).clamp(-1, 1)
 
 # Based on the paper, we choose the parameters that the
 # coarsest scale is 25px and r is as near as possible to 4/3
