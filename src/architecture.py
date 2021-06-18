@@ -101,4 +101,4 @@ class Discriminator(nn.Module):
         Returns:
             tensor: generated image
         """
-        return self.net(img)
+        return self.net(img).squeeze(1)

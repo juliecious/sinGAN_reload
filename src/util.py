@@ -10,7 +10,7 @@ def calculate_reconstruction_loss(recon_image, real_image):
     """
     return torch.sqrt(nn.MSELoss(recon_image, real_image))
 
-def calculate_gradient_penalty(real_imgs, fake_imgs, d, device, lam=10):
+def calculate_gradient_penalty(real_imgs, fake_imgs, d, device, lam):
     """Calculates the Wasserstein gradient penalty loss."""
 
     # Get batch size

@@ -9,13 +9,15 @@ import util
 # Init variables
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 lr = 5e-4
-iters = 1#2000
+iters = 2000#2000
 batch_size = 1
 interpolate_mode = 'nearest'
+sample_interval = 100
+lam = 10
 
 # Import picture
 img = io.imread('../assets/test.jpg')
-img = torch.as_tensor(img).to(device).permute(2, 0, 1)
+img = torch.as_tensor(img/255).to(device).permute(2, 0, 1).float()
 H, W = img.shape[1:]
 assert H == W, 'Image has to be quadratic!'
 
@@ -113,13 +115,57 @@ def train(N, r, iters, batch_size, img):
     # Train each scale one after the other
     for n in range(1, N+1):
         for i in range(iters):
-            # Sample only for the current scale
-            fake_imgs = sample_imgs(n, r, batch_size)[-1]
 
             # Get several copies of real image
             real_imgs = get_real_imgs(pyr, n, batch_size)
 
-            #util.calculate_gradient_penalty(real_imgs, fake_imgs, d, device, lam=10)
+            # ---------------------
+            #  Train Discriminator
+            # ---------------------
+            D[n-1].optimizer.zero_grad()
+
+            # Sample only for the current scale
+            fake_imgs = sample_imgs(n, r, batch_size)[-1]
+
+            # Real images
+            real_validity = D[n-1](real_imgs)
+
+            # Fake images
+            fake_validity = D[n-1](fake_imgs)
+
+            # Gradient penalty
+            gradient_penalty = util.calculate_gradient_penalty(real_imgs, fake_imgs, D[n-1], device, lam)
+
+            # Adversarial loss
+            d_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + gradient_penalty
+            d_loss.backward()
+            D[n-1].optimizer.step()
+
+            # -----------------
+            #  Train Generator
+            # -----------------
+            G[n-1].optimizer.zero_grad()
+
+            # Generate a batch of images
+            fake_imgs = sample_imgs(n, r, batch_size)[-1]
+
+            # Loss measures generator's ability to fool the discriminator
+            # Train on fake images
+            fake_validity = D[n-1](fake_imgs)
+
+            # Train generator
+            g_loss = -torch.mean(fake_validity)
+            g_loss.backward()
+            G[n-1].optimizer.step()
+
+            if i % 10 == 0:
+                print(
+                    "[Scale %d/%d] [Iter %d/%d] [D loss: %f] [G loss: %f]"
+                    % (n, N+1, i, iters, d_loss.item(), g_loss.item())
+                )
+
+            if i % sample_interval == 0:
+                io.imsave(f'../train/{n}_{i}.jpg', fake_imgs[0].type(torch.uint8).cpu().detach().permute(1, 2, 0).numpy())
 
 
 
