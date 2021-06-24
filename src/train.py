@@ -188,7 +188,7 @@ def train(N, r, iters, batch_size, img):
                 recon_img = sample_img(n, r, batch_size, z=z_recon)[-1]
 
                 # Reconstruction loss
-                loss = criterion(recon_img, real_img)
+                loss = alpha*criterion(recon_img, real_img)
                 loss.backward()
 
                 # Train generator
@@ -207,13 +207,13 @@ def train(N, r, iters, batch_size, img):
                 img = fake_img[0].cpu().detach().permute(1, 2, 0)
                 img = (img + 1) / 2
                 img = (img*255).type(torch.uint8).numpy()
-                io.imsave(f'../train/sample{n}_{i}.jpg', img)
+                io.imsave(f'../train/{n-1}_{i}_sample.png', img)
 
                 # Save reconstructed image
                 img = recon_img[0].cpu().detach().permute(1, 2, 0)
                 img = (img + 1) / 2
                 img = (img*255).type(torch.uint8).numpy()
-                io.imsave(f'../train/recon{n}_{i}.jpg', img)
+                io.imsave(f'../train/{n-1}_{i}_recon.png', img)
 
             # Scheduler
             G[n-1].scheduler.step()
