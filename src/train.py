@@ -14,10 +14,13 @@ batch_size = 1
 interpolate_mode = 'nearest'
 sample_interval = 500
 lam = 10
-network_iters=3
+network_iters=1
+alpha = 10
+criterion = nn.MSELoss()
+
 
 def normalize(img):
-    """Normalizes the image between [1, -1]."""
+    """Normalizes the image between [-1, 1]."""
     return 2*img / 255 - 1
 
 def load_img(path):
@@ -36,7 +39,7 @@ def load_img(path):
         img = torch.nn.functional.interpolate(img.unsqueeze(0), size=size, mode=interpolate_mode)
         img = img.squeeze(0)
 
-    # Lastly normalize image between [1, -1]
+    # Lastly normalize image between [-1, 1]
     img = normalize(img)
 
     return img
@@ -51,6 +54,7 @@ N = int(np.round(np.log(max_dim/25)/np.log(4/3) + 1))
 r = (max_dim/25)**(1/(N-1))
 #upsample = nn.Upsample(scale_factor=r, mode='nearest')
 zero_pad = nn.ZeroPad2d(5)
+z_start = torch.randn((batch_size, 3, 25, 25)).to(device)
 
 print(f'Number of scales: {N} and scale factor: {r}')
 
@@ -78,8 +82,8 @@ def noise(N, r, batch_size=1, shape=(25, 25)):
 
     # For every scale n, create the noise map with right scale
     for n in range(N):
-        z_n = torch.randn((batch_size, 1,) + tuple(noise_shape.int().tolist())).to(device)
-        z_n = z_n.expand(-1, 3, -1, -1)
+        z_n = torch.randn((batch_size, 3,) + tuple(noise_shape.int().tolist())).to(device)
+        #z_n = z_n.expand(-1, 3, -1, -1)
         z.append(z_n)
         noise_shape = noise_shape*r
     return z
@@ -96,9 +100,10 @@ def plot_pyr(pyr, index=0):
         plt.imshow(img)
     plt.show()
 
-def sample_imgs(high, r, batch_size, shape=(25, 25)):
-    # Sample noise maps
-    z = noise(high, r, batch_size=batch_size, shape=shape)
+def sample_img(high, r, batch_size, shape=(25, 25), z=None):
+    # Sample noise maps if not present
+    if z is None:
+        z = noise(high, r, batch_size=batch_size, shape=shape)
 
     # First scale only receives noise
     x = []
@@ -124,7 +129,7 @@ def img_pyr(shapes, start_img):
 
     return pyr[::-1]
 
-def get_real_imgs(pyr, n, batch_size):
+def get_real_img(pyr, n, batch_size):
     return pyr[n-1].repeat(batch_size, 1, 1, 1)
 
 def train(N, r, iters, batch_size, img):
@@ -134,11 +139,14 @@ def train(N, r, iters, batch_size, img):
     # Create image pyramid
     pyr = img_pyr(shapes, img)
 
+    # Create reconstruction noise maps
+    z_recon = [z_start]
+
     # Train each scale one after the other
     for n in range(1, N+1):
         for i in range(iters+1):
             # Get several copies of real image
-            real_imgs = get_real_imgs(pyr, n, batch_size)
+            real_img = get_real_img(pyr, n, batch_size)
 
             # ---------------------
             #  Train Discriminator
@@ -147,16 +155,16 @@ def train(N, r, iters, batch_size, img):
                 D[n-1].optimizer.zero_grad()
 
                 # Sample only for the current scale
-                fake_imgs = sample_imgs(n, r, batch_size)[-1]
+                fake_img = sample_img(n, r, batch_size)[-1]
 
                 # Real images
-                real_validity = D[n-1](real_imgs)
+                real_validity = D[n-1](real_img)
 
                 # Fake images
-                fake_validity = D[n-1](fake_imgs)
+                fake_validity = D[n-1](fake_img)
 
                 # Gradient penalty
-                gradient_penalty = util.calculate_gradient_penalty(real_imgs, fake_imgs, D[n-1], device, lam)
+                gradient_penalty = util.calculate_gradient_penalty(real_img, fake_img, D[n-1], device, lam)
 
                 # Adversarial loss
                 d_loss = -torch.mean(real_validity) + torch.mean(fake_validity) + gradient_penalty
@@ -170,11 +178,18 @@ def train(N, r, iters, batch_size, img):
                 G[n-1].optimizer.zero_grad()
 
                 # Generate a batch of images
-                fake_imgs = sample_imgs(n, r, batch_size)[-1]
+                fake_img = sample_img(n, r, batch_size)[-1]
 
                 # Loss measures generator's ability to fool the discriminator
                 # Train on fake images
-                fake_validity = D[n-1](fake_imgs)
+                fake_validity = D[n-1](fake_img)
+
+                # Reconstruction image
+                recon_img = sample_img(n, r, batch_size, z=z_recon)[-1]
+
+                # Reconstruction loss
+                loss = criterion(recon_img, real_img)
+                loss.backward()
 
                 # Train generator
                 g_loss = -torch.mean(fake_validity)
@@ -188,14 +203,24 @@ def train(N, r, iters, batch_size, img):
                 )
 
             if i % sample_interval == 0:
-                img = fake_imgs[0].cpu().detach().permute(1, 2, 0)
+                # Save sampled image
+                img = fake_img[0].cpu().detach().permute(1, 2, 0)
                 img = (img + 1) / 2
                 img = (img*255).type(torch.uint8).numpy()
-                io.imsave(f'../train/{n}_{i}.jpg', img)
+                io.imsave(f'../train/sample{n}_{i}.jpg', img)
+
+                # Save reconstructed image
+                img = recon_img[0].cpu().detach().permute(1, 2, 0)
+                img = (img + 1) / 2
+                img = (img*255).type(torch.uint8).numpy()
+                io.imsave(f'../train/recon{n}_{i}.jpg', img)
 
             # Scheduler
             G[n-1].scheduler.step()
             D[n-1].scheduler.step()
+
+        # Add zero noise map to reconstructions noise maps
+        z_recon.append(torch.zeros((batch_size, 3,) + shapes[n], device=device))
 
 # Test noise
 #pyr = noise(N, r, shape=(25, 25))
@@ -205,7 +230,7 @@ def train(N, r, iters, batch_size, img):
 #plot_pyr(pyr)
 
 # Test generating imgs
-#imgs = sample_imgs(N, r, 1)
+#imgs = sample_img(N, r, 1)
 #for t in imgs:
 #    print(t)
 
