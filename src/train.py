@@ -9,15 +9,40 @@ import util
 # Init variables
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 lr = 5e-4
-iters = 2000#2000
+iters = 1#2000
 batch_size = 1
 interpolate_mode = 'nearest'
 sample_interval = 100
 lam = 10
 
-# Import picture
-img = io.imread('../assets/test.jpg')
-img = torch.as_tensor(img/255).to(device).permute(2, 0, 1).float()
+def normalize(img):
+    """Normalizes the image between [1, -1]."""
+    return 2*img / 255 - 1
+
+def load_img(path):
+    """Load image, returns tensor with shape [C, H, W]."""
+    img = io.imread(path)
+
+    # Change to tensor
+    img = torch.as_tensor(img).permute(2, 0, 1)
+    img = img.to(device).float()
+
+    # Resize to max dimension of 250px
+    size = torch.as_tensor(img.shape[1:])
+    if size.max().item() > 250:
+        scale = 250/size.max().item()
+        size = tuple((size*scale).int().tolist())
+        img = torch.nn.functional.interpolate(img.unsqueeze(0), size=size, mode=interpolate_mode)
+        img = img.squeeze(0)
+
+    # Lastly normalize image between [1, -1]
+    img = normalize(img)
+
+    return img
+
+
+img = load_img('../assets/test.jpg')
+quit()
 H, W = img.shape[1:]
 assert H == W, 'Image has to be quadratic!'
 
@@ -115,7 +140,6 @@ def train(N, r, iters, batch_size, img):
     # Train each scale one after the other
     for n in range(1, N+1):
         for i in range(iters):
-
             # Get several copies of real image
             real_imgs = get_real_imgs(pyr, n, batch_size)
 
@@ -126,6 +150,7 @@ def train(N, r, iters, batch_size, img):
 
             # Sample only for the current scale
             fake_imgs = sample_imgs(n, r, batch_size)[-1]
+            print(fake_imgs)
 
             # Real images
             real_validity = D[n-1](real_imgs)
@@ -166,7 +191,7 @@ def train(N, r, iters, batch_size, img):
 
             if i % sample_interval == 0:
                 io.imsave(f'../train/{n}_{i}.jpg', fake_imgs[0].type(torch.uint8).cpu().detach().permute(1, 2, 0).numpy())
-
+        quit()
 
 
 # Test noise
