@@ -40,16 +40,14 @@ def load_img(path):
 
     return img
 
-
+# Load image
 img = load_img('../assets/test.jpg')
-quit()
-H, W = img.shape[1:]
-assert H == W, 'Image has to be quadratic!'
+max_dim = torch.as_tensor(img.shape[1:]).int().max().item()
 
 # Based on the paper, we choose the parameters that the
 # coarsest scale is 25px and r is as near as possible to 4/3
-N = int(np.round(np.log(H/25)/np.log(4/3) + 1))
-r = (H/25)**(1/(N-1))
+N = int(np.round(np.log(max_dim/25)/np.log(4/3) + 1))
+r = (max_dim/25)**(1/(N-1))
 #upsample = nn.Upsample(scale_factor=r, mode='nearest')
 zero_pad = nn.ZeroPad2d(5)
 
@@ -60,7 +58,7 @@ G = [Generator(32*(int(i/4)+1), lr).to(device) for i in range(N)]
 D = [Discriminator(32*(int(i/4)+1), lr).to(device) for i in range(N)]
 
 def get_pyr_shapes(N, r, start_shape=(25, 25)):
-    # Get the shape of the images/noise maps of each scale
+    """Get the shape of the images/noise maps of each scale."""
 
     # Init variables
     shape = torch.tensor(start_shape)
@@ -129,10 +127,10 @@ def img_pyr(shapes, start_img):
 def get_real_imgs(pyr, n, batch_size):
     return pyr[n-1].repeat(batch_size, 1, 1, 1)
 
-
 def train(N, r, iters, batch_size, img):
     # Get image pyramid scales
     shapes = get_pyr_shapes(N, r)
+    print(shapes)
 
     # Create image pyramid
     pyr = img_pyr(shapes, img)

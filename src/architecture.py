@@ -48,7 +48,8 @@ class Generator(nn.Module):
             ConvBlock(output_dim, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
-            ConvBlock(output_dim, 3, 3, act_fn=nn.Tanh())
+            nn.Conv2d(output_dim, 3, 3),
+            nn.Tanh()
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=milestones, gamma=gamma)
@@ -87,7 +88,7 @@ class Discriminator(nn.Module):
             ConvBlock(output_dim, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
             ConvBlock(output_dim, output_dim, 3),
-            ConvBlock(output_dim, 1, 3)
+            nn.Conv2d(output_dim, 1, 3),
         )
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr, betas=betas)
         self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=milestones, gamma=gamma)
