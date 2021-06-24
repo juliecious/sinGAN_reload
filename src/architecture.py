@@ -67,7 +67,7 @@ class Generator(nn.Module):
         """
         input = self.zero_pad(noise) + self.zero_pad(img)
         residuals = self.net(input)
-        return img + residuals
+        return (img + residuals).clamp(-1, 1)
 
 class Discriminator(nn.Module):
     """
