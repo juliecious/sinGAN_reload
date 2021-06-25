@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from skimage import io
+from skimage.filters import gaussian
 import numpy as np
 from architecture import Generator, Discriminator
 import matplotlib.pyplot as plt
@@ -41,6 +42,9 @@ def load_img(path):
 
     # Lastly normalize image between [-1, 1]
     img = normalize(img)
+
+    # Add an extra dimension for batch size
+    img = img.unsqueeze(0)
 
     return img
 
@@ -119,12 +123,28 @@ def sample_img(high, r, batch_size, shape=(25, 25), z=None):
 
     return x
 
-def img_pyr(shapes, start_img):
-    pyr = []
-    img = start_img.clone().unsqueeze(0)
+def gaussian_smoothing(img):
+    """Apply gaussian smoothing on the image."""
+    kernel = torch.Tensor([
+        [1, 2, 1],
+        [2, 4, 2],
+        [1, 2, 1],
+    ])/16
+    kernel = kernel.reshape(1, 1, 3, 3).to(device)
+    smooth_img = torch.nn.functional.conv2d(img.permute(1, 0, 2, 3), kernel, padding=1)
+    smooth_img = smooth_img.permute(1, 0, 2, 3)
 
-    for size in reversed(shapes):
-        img = torch.nn.functional.interpolate(img, size=size, mode=interpolate_mode)
+    return smooth_img
+
+def img_pyr(shapes, start_img):
+    """Creates an image pyramid of the given images and shapes."""
+    img = start_img.clone()
+    pyr = [img]
+
+    for size in reversed(shapes[:-1]):
+        img = torch.from_numpy(gaussian(img.squeeze(0).cpu().permute(1,2,0).numpy(), sigma=0.4)).permute(2, 0, 1).unsqueeze(0).to(device)
+        img = torch.nn.functional.interpolate(img, size=size, mode='bicubic')
+        img = img.clamp(-1, 1)
         pyr.append(img)
 
     return pyr[::-1]
@@ -144,24 +164,24 @@ def train(N, r, iters, batch_size, img):
 
     # Train each scale one after the other
     for n in range(1, N+1):
-        for i in range(iters+1):
-            # Get several copies of real image
-            real_img = get_real_img(pyr, n, batch_size)
+        # Get training image of the respective scale
+        real_img = pyr[n-1]
 
+        for i in range(iters+1):
             # ---------------------
             #  Train Discriminator
             # ---------------------
             for _ in range(network_iters):
                 D[n-1].optimizer.zero_grad()
 
-                # Sample only for the current scale
-                fake_img = sample_img(n, r, batch_size)[-1]
-
                 # Real images
                 real_validity = D[n-1](real_img)
 
+                # Sample only for the current scale
+                fake_img = sample_img(n, r, batch_size)[-1]
+
                 # Fake images
-                fake_validity = D[n-1](fake_img)
+                fake_validity = D[n-1](fake_img.detach())
 
                 # Gradient penalty
                 gradient_penalty = util.calculate_gradient_penalty(real_img, fake_img, D[n-1], device, lam)
@@ -184,16 +204,16 @@ def train(N, r, iters, batch_size, img):
                 # Train on fake images
                 fake_validity = D[n-1](fake_img)
 
+                # Train generator
+                g_loss = -torch.mean(fake_validity)
+                g_loss.backward()
+
                 # Reconstruction image
                 recon_img = sample_img(n, r, batch_size, z=z_recon)[-1]
 
                 # Reconstruction loss
                 loss = alpha*criterion(recon_img, real_img)
                 loss.backward()
-
-                # Train generator
-                g_loss = -torch.mean(fake_validity)
-                g_loss.backward()
                 G[n-1].optimizer.step()
 
             if i % 10 == 0:
@@ -220,7 +240,8 @@ def train(N, r, iters, batch_size, img):
             D[n-1].scheduler.step()
 
         # Add zero noise map to reconstructions noise maps
-        z_recon.append(torch.zeros((batch_size, 3,) + shapes[n], device=device))
+        if n < N:
+            z_recon.append(torch.zeros((batch_size, 3,) + shapes[n], device=device))
 
 # Test noise
 #pyr = noise(N, r, shape=(25, 25))
