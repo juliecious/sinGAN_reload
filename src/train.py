@@ -198,7 +198,7 @@ def train(N, r, iters, batch_size, img):
                 G[n-1].optimizer.zero_grad()
 
                 # Generate a batch of images
-                fake_img = sample_img(n, r, batch_size)[-1]
+                #fake_img = sample_img(n, r, batch_size)[-1]
 
                 # Loss measures generator's ability to fool the discriminator
                 # Train on fake images
@@ -242,19 +242,5 @@ def train(N, r, iters, batch_size, img):
         # Add zero noise map to reconstructions noise maps
         if n < N:
             z_recon.append(torch.zeros((batch_size, 3,) + shapes[n], device=device))
-
-# Test noise
-#pyr = noise(N, r, shape=(25, 25))
-#for t in pyr:
-#    print(t.shape)
-
-#plot_pyr(pyr)
-
-# Test generating imgs
-#imgs = sample_img(N, r, 1)
-#for t in imgs:
-#    print(t)
-
-#plot_pyr(imgs)
 
 train(N, r, iters, batch_size, img)

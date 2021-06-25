@@ -21,6 +21,11 @@ class ConvBlock(nn.Module):
             act_fn,
         )
 
+        # Weight initalisation
+        self.net[0].weight.data.normal_(0.0, 0.02)
+        self.net[1].weight.data.normal_(1.0, 0.02)
+        self.net[1].bias.data.fill_(0)
+
     def forward(self, x):
         return self.net(x)
 

@@ -17,7 +17,7 @@ def calculate_gradient_penalty(real_imgs, fake_imgs, d, device, lam):
     batch_size = real_imgs.shape[0]
 
     # Generate a random number epsilon for every image in the batch from a uniform distribution U[0,1]
-    eps = torch.rand(batch_size, 1, 1, 1, device=device)
+    eps = torch.rand(batch_size, device=device)
 
     # Get interpolated images
     int_imgs = eps * real_imgs + (1 - eps) * fake_imgs
