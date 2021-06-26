@@ -193,7 +193,6 @@ def train(N, r, iters, batch_size, img):
 
             recon_img  = upsample(recon_img)
             rmse = torch.sqrt(criterion(recon_img, pyr[n]))
-            print('RMSE', rmse)
             sigma.append(rmse.item()*0.1)
 
             # Add zero noise map to reconstructions noise maps
