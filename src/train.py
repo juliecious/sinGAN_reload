@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 from skimage import io
-from skimage.filters import gaussian
 import numpy as np
 from architecture import Generator, Discriminator
+from image import pyramid, load_img, plot_pyr
 import matplotlib.pyplot as plt
 import util
 
@@ -19,37 +19,8 @@ network_iters=1
 alpha = 10
 criterion = nn.MSELoss()
 
-
-def normalize(img):
-    """Normalizes the image between [-1, 1]."""
-    return 2*img / 255 - 1
-
-def load_img(path):
-    """Load image, returns tensor with shape [C, H, W]."""
-    img = io.imread(path)
-
-    # Change to tensor
-    img = torch.as_tensor(img).permute(2, 0, 1)
-    img = img.to(device).float()
-
-    # Resize to max dimension of 250px
-    size = torch.as_tensor(img.shape[1:])
-    if size.max().item() > 250:
-        scale = 250/size.max().item()
-        size = tuple((size*scale).int().tolist())
-        img = torch.nn.functional.interpolate(img.unsqueeze(0), size=size, mode=interpolate_mode)
-        img = img.squeeze(0)
-
-    # Lastly normalize image between [-1, 1]
-    img = normalize(img)
-
-    # Add an extra dimension for batch size
-    img = img.unsqueeze(0)
-
-    return img
-
 # Load image
-img = load_img('../assets/test.jpg')
+img = load_img('../assets/test.jpg', device)
 max_dim = torch.as_tensor(img.shape[1:]).int().max().item()
 
 # Based on the paper, we choose the parameters that the
@@ -58,7 +29,7 @@ N = int(np.round(np.log(max_dim/25)/np.log(4/3) + 1))
 r = (max_dim/25)**(1/(N-1))
 #upsample = nn.Upsample(scale_factor=r, mode='nearest')
 zero_pad = nn.ZeroPad2d(5)
-z_start = torch.randn((batch_size, 3, 25, 25)).to(device)
+#z_start = torch.randn((batch_size, 3, 25, 25)).to(device)
 
 print(f'Number of scales: {N} and scale factor: {r}')
 
@@ -79,30 +50,22 @@ def get_pyr_shapes(N, r, start_shape=(25, 25)):
         shape = shape*r
     return shapes
 
-def noise(N, r, batch_size=1, shape=(25, 25)):
+def noise(N, r, sigma, batch_size=1, shape=(25, 25)):
     # Init variables
     z = []
     noise_shape = torch.tensor(shape)
 
     # For every scale n, create the noise map with right scale
     for n in range(N):
-        z_n = torch.randn((batch_size, 3,) + tuple(noise_shape.int().tolist())).to(device)
-        #z_n = z_n.expand(-1, 3, -1, -1)
-        z.append(z_n)
+        # For first scale use noise map for all channels
+        if n == 0:
+            z_n = torch.randn((batch_size, 1,) + tuple(noise_shape.int().tolist())).to(device)
+            z_n = z_n.expand(-1, 3, -1, -1)
+        else:
+            z_n = torch.randn((batch_size, 3,) + tuple(noise_shape.int().tolist())).to(device)
+        z.append(z_n*sigma[n])
         noise_shape = noise_shape*r
     return z
-
-def plot_pyr(pyr, index=0):
-    # Plots an image pyramid, pyr = List of images
-    N = len(pyr)
-
-    for i, img in enumerate(pyr):
-        # Transform images
-        img = img[index].permute(1, 2, 0).cpu().detach().numpy()
-
-        plt.subplot(1, N, i+1)
-        plt.imshow(img)
-    plt.show()
 
 def sample_img(high, r, batch_size, shape=(25, 25), z=None):
     # Sample noise maps if not present
@@ -123,32 +86,6 @@ def sample_img(high, r, batch_size, shape=(25, 25), z=None):
 
     return x
 
-def gaussian_smoothing(img):
-    """Apply gaussian smoothing on the image."""
-    kernel = torch.Tensor([
-        [1, 2, 1],
-        [2, 4, 2],
-        [1, 2, 1],
-    ])/16
-    kernel = kernel.reshape(1, 1, 3, 3).to(device)
-    smooth_img = torch.nn.functional.conv2d(img.permute(1, 0, 2, 3), kernel, padding=1)
-    smooth_img = smooth_img.permute(1, 0, 2, 3)
-
-    return smooth_img
-
-def img_pyr(shapes, start_img):
-    """Creates an image pyramid of the given images and shapes."""
-    img = start_img.clone()
-    pyr = [img]
-
-    for size in reversed(shapes[:-1]):
-        img = torch.from_numpy(gaussian(img.squeeze(0).cpu().permute(1,2,0).numpy(), sigma=0.4)).permute(2, 0, 1).unsqueeze(0).to(device)
-        img = torch.nn.functional.interpolate(img, size=size, mode='bicubic')
-        img = img.clamp(-1, 1)
-        pyr.append(img)
-
-    return pyr[::-1]
-
 def get_real_img(pyr, n, batch_size):
     return pyr[n-1].repeat(batch_size, 1, 1, 1)
 
@@ -157,10 +94,10 @@ def train(N, r, iters, batch_size, img):
     shapes = get_pyr_shapes(N, r)
 
     # Create image pyramid
-    pyr = img_pyr(shapes, img)
+    pyr = pyramid(img, shapes, device)
 
-    # Create reconstruction noise maps
-    z_recon = [z_start]
+    # Init sigmas
+    sigma = [1.0]
 
     # Train each scale one after the other
     for n in range(1, N+1):
@@ -168,6 +105,16 @@ def train(N, r, iters, batch_size, img):
         real_img = pyr[n-1]
 
         for i in range(iters+1):
+            # For first scale create reconstruction noise
+            if n == 1:
+                # In the paper they said only once, however, in their code
+                # they do it every iteration for the first scale??
+                z_start = torch.randn((batch_size, 3, 25, 25)).to(device)
+                z_recon = [z_start]
+
+            # Draw noise for this scale
+            z = noise(n, r, sigma)
+
             # ---------------------
             #  Train Discriminator
             # ---------------------
@@ -178,7 +125,7 @@ def train(N, r, iters, batch_size, img):
                 real_validity = D[n-1](real_img)
 
                 # Sample only for the current scale
-                fake_img = sample_img(n, r, batch_size)[-1]
+                fake_img = sample_img(n, r, batch_size, z=z)[-1]
 
                 # Fake images
                 fake_validity = D[n-1](fake_img.detach())
@@ -198,7 +145,7 @@ def train(N, r, iters, batch_size, img):
                 G[n-1].optimizer.zero_grad()
 
                 # Generate a batch of images
-                #fake_img = sample_img(n, r, batch_size)[-1]
+                fake_img = sample_img(n, r, batch_size, z=z)[-1]
 
                 # Loss measures generator's ability to fool the discriminator
                 # Train on fake images
@@ -206,7 +153,7 @@ def train(N, r, iters, batch_size, img):
 
                 # Train generator
                 g_loss = -torch.mean(fake_validity)
-                g_loss.backward()
+                g_loss.backward(retain_graph=True)
 
                 # Reconstruction image
                 recon_img = sample_img(n, r, batch_size, z=z_recon)[-1]
@@ -239,8 +186,17 @@ def train(N, r, iters, batch_size, img):
             G[n-1].scheduler.step()
             D[n-1].scheduler.step()
 
-        # Add zero noise map to reconstructions noise maps
         if n < N:
+            # Calculate the RMSE to get the next sigma_n
+            recon_img = sample_img(n, r, batch_size, z=z_recon)[-1]
+            upsample = torch.nn.Upsample(size=tuple(shapes[n]))
+
+            recon_img  = upsample(recon_img)
+            rmse = torch.sqrt(criterion(recon_img, pyr[n]))
+            print('RMSE', rmse)
+            sigma.append(rmse.item())
+
+            # Add zero noise map to reconstructions noise maps
             z_recon.append(torch.zeros((batch_size, 3,) + shapes[n], device=device))
 
 train(N, r, iters, batch_size, img)
