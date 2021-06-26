@@ -67,10 +67,10 @@ def noise(N, r, sigma, batch_size=1, shape=(25, 25)):
         noise_shape = noise_shape*r
     return z
 
-def sample_img(high, r, batch_size, shape=(25, 25), z=None):
+def sample_img(high, r, batch_size, shape=(25, 25), z=None, sigma=None):
     # Sample noise maps if not present
     if z is None:
-        z = noise(high, r, batch_size=batch_size, shape=shape)
+        z = noise(high, r, sigma, batch_size=batch_size, shape=shape)
 
     # First scale only receives noise
     x = []
