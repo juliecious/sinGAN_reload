@@ -14,7 +14,7 @@ iters = 2000
 batch_size = 1
 interpolate_mode = 'nearest'
 sample_interval = 500
-lam = 10
+lam = 0.1
 network_iters=1
 alpha = 10
 criterion = nn.MSELoss()
@@ -194,7 +194,7 @@ def train(N, r, iters, batch_size, img):
             recon_img  = upsample(recon_img)
             rmse = torch.sqrt(criterion(recon_img, pyr[n]))
             print('RMSE', rmse)
-            sigma.append(rmse.item())
+            sigma.append(rmse.item()*0.1)
 
             # Add zero noise map to reconstructions noise maps
             z_recon.append(torch.zeros((batch_size, 3,) + shapes[n], device=device))
