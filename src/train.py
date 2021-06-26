@@ -166,7 +166,7 @@ def train(N, r, iters, batch_size, img):
             if i % 10 == 0:
                 print(
                     "[Scale %d/%d] [Iter %d/%d] [D loss: %f] [G loss: %f]"
-                    % (n, N+1, i, iters, d_loss.item(), g_loss.item())
+                    % (n-1, N-1, i, iters, d_loss.item(), g_loss.item())
                 )
 
             if i % sample_interval == 0:
