@@ -1,3 +1,4 @@
+""""""
 import torch
 import torch.nn as nn
 
@@ -74,6 +75,27 @@ class Generator(nn.Module):
         residuals = self.net(input)
         return (img + residuals).clamp(-1, 1)
 
+    def save(self, path):
+        """Saves the model on the giving path
+
+        Args:
+            path (str): Path for saving the model
+        """
+        torch.save({
+            'model_state_dict': self.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            }, path)
+
+    def load(self, path):
+        """Loads the model from the given path
+
+        Args:
+            path (str): Path to load the model from
+        """
+        checkpoint = torch.load(path)
+        self.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
 class Discriminator(nn.Module):
     """
     Define single Discriminator for one scale. The discriminator last conv-block has neither
@@ -108,3 +130,24 @@ class Discriminator(nn.Module):
             tensor: generated image
         """
         return self.net(img)
+
+    def save(self, path):
+        """Saves the model on the giving path
+
+        Args:
+            path (str): Path for saving the model
+        """
+        torch.save({
+            'model_state_dict': self.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            }, path)
+
+    def load(self, path):
+        """Loads the model from the given path
+
+        Args:
+            path (str): Path to load the model from
+        """
+        checkpoint = torch.load(path)
+        self.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])

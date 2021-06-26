@@ -27,9 +27,7 @@ max_dim = torch.as_tensor(img.shape[1:]).int().max().item()
 # coarsest scale is 25px and r is as near as possible to 4/3
 N = int(np.round(np.log(max_dim/25)/np.log(4/3) + 1))
 r = (max_dim/25)**(1/(N-1))
-#upsample = nn.Upsample(scale_factor=r, mode='nearest')
 zero_pad = nn.ZeroPad2d(5)
-#z_start = torch.randn((batch_size, 3, 25, 25)).to(device)
 
 print(f'Number of scales: {N} and scale factor: {r}')
 
@@ -85,9 +83,6 @@ def sample_img(high, r, batch_size, shape=(25, 25), z=None, sigma=None):
         x.append(x_n)
 
     return x
-
-def get_real_img(pyr, n, batch_size):
-    return pyr[n-1].repeat(batch_size, 1, 1, 1)
 
 def train(N, r, iters, batch_size, img):
     # Get image pyramid scales
@@ -197,5 +192,9 @@ def train(N, r, iters, batch_size, img):
 
             # Add zero noise map to reconstructions noise maps
             z_recon.append(torch.zeros((batch_size, 3,) + shapes[n], device=device))
+
+        # Save models
+        G[n-1].save(f'../train/gen{n-1}.pt')
+        D[n-1].save(f'../train/disc{n-1}.pt')
 
 train(N, r, iters, batch_size, img)
