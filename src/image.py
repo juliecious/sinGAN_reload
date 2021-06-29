@@ -4,6 +4,7 @@ import torch.nn
 import numpy as np
 from skimage import io
 from skimage.filters import gaussian
+from skimage.color import rgb2lab, lab2rgb
 import matplotlib.pyplot as plt
 
 
@@ -14,6 +15,9 @@ def normalize(img):
 def load_img(path, device):
     """Load image as tensor with shape [C, H, W]."""
     img = io.imread(path)
+
+    # Convert to lab space
+    img = rgb2lab(img)
 
     # Change to tensor
     img = torch.as_tensor(img).permute(2, 0, 1)
@@ -28,7 +32,11 @@ def load_img(path, device):
         img = img.squeeze(0)
 
     # Lastly normalize image between [-1, 1]
-    img = normalize(img)
+    #img = normalize(img)
+    img[0] -=50
+    img[0] /= 50
+    img[1:] += 0.5
+    img[1:] /= 127.5
 
     # Add an extra dimension for batch size
     img = img.unsqueeze(0)
@@ -81,3 +89,6 @@ def pyramid(start_img, shapes, device):
         pyr.append(img)
 
     return pyr[::-1]
+
+def rgb_to_lab(img):
+    pass
