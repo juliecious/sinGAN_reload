@@ -1,4 +1,4 @@
-""""""
+"""SinGAN generator and discriminator architectures."""
 import torch
 import torch.nn as nn
 

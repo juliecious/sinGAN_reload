@@ -4,12 +4,6 @@ from torch import autograd
 from torch.autograd import Variable
 
 
-def calculate_reconstruction_loss(recon_image, real_image):
-    """
-    Calcuate root mean squared error bewteen reconstructed image and the real image in each layer
-    """
-    return torch.sqrt(nn.MSELoss(recon_image, real_image))
-
 def calculate_gradient_penalty(real_imgs, fake_imgs, d, device, lam):
     """Calculates the Wasserstein gradient penalty loss."""
 
