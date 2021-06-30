@@ -12,9 +12,21 @@ import pickle
 
 TRAIN_PATH = './train'
 
-class SinGAN():
+class SinGAN:
+    """Generative model which uses only on image to train on."""
+
     def __init__(self, device, lr, lam, alpha, iters, sample_interval,  network_iters, path):
         """Constructor
+
+        Args:
+            device (torch.device): device to train on, either cuda or cpu
+            lr (float): learning rate
+            lam (float): gradient penalty lambda
+            alpha (float): weighting of reconstruction loss
+            iters (int): iterations per scale
+            sample_interval (int): iteration intervals to sample test images
+            network_iters (int): iterations per network update
+            path (str): image path
         """
 
         # Init variables
@@ -29,7 +41,7 @@ class SinGAN():
         self.zero_pad = nn.ZeroPad2d(5)
         self.trained_scale = 0
 
-        self.sigma = []
+        self.sigma = [1.0]
         self.z_recon = []
 
         # Load image
@@ -53,7 +65,15 @@ class SinGAN():
         self.D = [Discriminator(32*(int(i/4)+1), lr).to(self.device) for i in range(self.N)]
 
     def noise(self, N, shape=(25, 25)):
-        """Samples latent space noise."""
+        """Samples latent space noise.
+
+        Args:
+            N (int): Samples noise from first to the N-th scale
+            shape (tuple, optional): Shape of noise at first scale. Defaults to (25, 25).
+
+        Returns:
+            List: List of noise maps for each Scale with length N
+        """
         # Init variables
         z = []
         noise_shape = torch.tensor(shape)
@@ -70,18 +90,27 @@ class SinGAN():
             noise_shape = noise_shape*self.r
         return z
 
-    def sample_img(self, high, shape=(25, 25), z=None):
-        """Samples image pyramid."""
+    def sample_img(self, N, shape=(25, 25), z=None):
+        """Samples an image from the SinGAN.
+
+        Args:
+            N (int): scale to sample from
+            shape (tuple, optional): Shape of image at first scale. Defaults to (25, 25).
+            z (List, optional): Noise Maps. If nothing is given, the noise is sampled. Defaults to None.
+
+        Returns:
+            List<torch.tensor>: List of output images of different scales
+        """
         # Sample noise maps if not present
         if z is None:
-            z = self.noise(high, shape=shape)
+            z = self.noise(N, shape=shape)
 
         # First scale only receives noise
         x = []
         x_n = torch.zeros(z[0].shape).to(self.device)
 
         # Go through all scales and create image
-        for n in range(high):
+        for n in range(N):
             upsample = torch.nn.Upsample(size=tuple(z[n].shape[2:]), mode='bilinear', align_corners=True)
 
             x_n = upsample(x_n)
@@ -109,7 +138,6 @@ class SinGAN():
         """Loads the models."""
         with open(TRAIN_PATH + '/SinGAN.pkl', 'rb') as f:
             checkpoint = pickle.load(f)
-            print(checkpoint)
 
         self.trained_scale = checkpoint['trained_scale']
         self.img = checkpoint['img']
@@ -125,7 +153,7 @@ class SinGAN():
         for i in range(self.trained_scale):
             self.G[i].load(TRAIN_PATH + f'/G_{i}.pt')
             self.D[i].load(TRAIN_PATH + f'/D_{i}.pt')
-        print(f'Loaded SinGAN, model is trained to scale {self.trained_scale} from {self.N}!')
+        print(f'Loaded SinGAN, model was trained up to scale {self.trained_scale-1} of {self.N-1}!')
 
     def train(self):
         """Trains the SinGAN architecture."""
@@ -134,9 +162,6 @@ class SinGAN():
 
         # Create image pyramid
         pyr = pyramid(self.img, shapes, self.device)
-
-        # Init sigmas
-        self.sigma = [1.0]
 
         # Train each scale one after the other
         start = self.trained_scale+1
@@ -252,12 +277,23 @@ class SinGAN():
             # Save models
             self.save()
 
-    def generate(self, num_imgs, shape):
-        """Generates new images."""
-        imgs = []
+    def generate(self, num_imgs, output_shape):
+        """Generates new images.
 
-        for i in range(num_imgs):
-            img = self.sample_img(self.N)
-            imgs.append(imgs)
+        Args:
+            num_imgs (int): Number of images
+            output_shape (tuple or List): 2-dimensional shape (height, width) of output images
+
+        Returns:
+            List: Sampled output images
+        """
+        # Get shape of smallest scale
+        shape = np.array(output_shape)
+        shape = shape / (self.r ** (self.trained_scale-1))
+        shape = np.round(shape).astype(np.int32)
+
+        # Sample images
+        imgs = [self.sample_img(self.trained_scale, shape=shape)[-1] for _ in range(num_imgs)]
+        print(imgs[0].shape)
 
         return imgs
