@@ -26,25 +26,33 @@ class SinGAN():
         self.sample_interval = sample_interval
         self.network_iters = network_iters
         self.criterion = nn.MSELoss()
-
-        # Load image
-        self.img = load_img(path, device)
-        max_dim = torch.as_tensor(self.img.shape[1:]).int().max().item()
-
-        # Based on the paper, we choose the parameters that the
-        # coarsest scale is 25px and r is as near as possible to 4/3
-        self.N = int(np.round(np.log(max_dim/25)/np.log(4/3) + 1))
-        self.r = (max_dim/25)**(1/(self.N-1))
         self.zero_pad = nn.ZeroPad2d(5)
         self.trained_scale = 0
 
-        print(f'Number of scales: {self.N} and scale factor: {self.r}')
+        self.sigma = []
+        self.z_recon = []
+
+        # Load image
+        if path is not None:
+            self.img = load_img(path, device)
+            max_dim = torch.as_tensor(self.img.shape[1:]).int().max().item()
+
+            # Based on the paper, we choose the parameters that the
+            # coarsest scale is 25px and r is as near as possible to 4/3
+            self.N = int(np.round(np.log(max_dim/25)/np.log(4/3) + 1))
+            self.r = (max_dim/25)**(1/(self.N-1))
+            print(f'Number of scales: {self.N} and scale factor: {self.r}')
+        else:
+            self.img = None
+            max_dim = 0
+            self.N = 0
+            self.r = 0
 
         # Init generators and discriminators
         self.G = [Generator(32*(int(i/4)+1), lr).to(self.device) for i in range(self.N)]
         self.D = [Discriminator(32*(int(i/4)+1), lr).to(self.device) for i in range(self.N)]
 
-    def noise(self, N, r, sigma, shape=(25, 25)):
+    def noise(self, N, shape=(25, 25)):
         """Samples latent space noise."""
         # Init variables
         z = []
@@ -58,15 +66,15 @@ class SinGAN():
                 z_n = z_n.expand(-1, 3, -1, -1)
             else:
                 z_n = torch.randn((1, 3,) + tuple(noise_shape.int().tolist())).to(self.device)
-            z.append(z_n*sigma[n])
-            noise_shape = noise_shape*r
+            z.append(z_n*self.sigma[n])
+            noise_shape = noise_shape*self.r
         return z
 
-    def sample_img(self, high, r, shape=(25, 25), z=None, sigma=None):
+    def sample_img(self, high, shape=(25, 25), z=None):
         """Samples image pyramid."""
         # Sample noise maps if not present
         if z is None:
-            z = self.noise(high, r, sigma, shape=shape)
+            z = self.noise(high, shape=shape)
 
         # First scale only receives noise
         x = []
@@ -84,27 +92,40 @@ class SinGAN():
 
     def save(self):
         """Saves the models."""
-        self.G[self.trained_scale-1].save(TRAIN_PATH + f'/G_{self.trained_scale-1}')
-        self.D[self.trained_scale-1].save(TRAIN_PATH + f'/D_{self.trained_scale-1}')
+        self.G[self.trained_scale-1].save(TRAIN_PATH + f'/G_{self.trained_scale-1}.pt')
+        self.D[self.trained_scale-1].save(TRAIN_PATH + f'/D_{self.trained_scale-1}.pt')
 
         with open(TRAIN_PATH + '/SinGAN.pkl', 'wb') as f:
             pickle.dump({
-            'trained_scale', self.trained_scale,
-            'img', self.img,
-            'N', self.N,
-            'r', self.r
+            'trained_scale': self.trained_scale,
+            'img': self.img,
+            'N': self.N,
+            'r': self.r,
+            'sigma': self.sigma,
+            'z_recon': self.z_recon,
             }, f)
 
     def load(self):
         """Loads the models."""
         with open(TRAIN_PATH + '/SinGAN.pkl', 'rb') as f:
             checkpoint = pickle.load(f)
+            print(checkpoint)
 
-        self.G = checkpoint['generators']
-        self.D = checkpoint['discriminators']
         self.trained_scale = checkpoint['trained_scale']
+        self.img = checkpoint['img']
+        self.N = checkpoint['N']
+        self.r = checkpoint['r']
+        self.sigma = checkpoint['sigma']
+        self.z_recon = checkpoint['z_recon']
 
-        print(f'Loaded SinGAN, model is trained to scale {self.trained_scale}!')
+        # Recreate Generators and Discriminators
+        self.G = [Generator(32*(int(i/4)+1), self.lr).to(self.device) for i in range(self.N)]
+        self.D = [Discriminator(32*(int(i/4)+1), self.lr).to(self.device) for i in range(self.N)]
+
+        for i in range(self.trained_scale):
+            self.G[i].load(TRAIN_PATH + f'/G_{i}.pt')
+            self.D[i].load(TRAIN_PATH + f'/D_{i}.pt')
+        print(f'Loaded SinGAN, model is trained to scale {self.trained_scale} from {self.N}!')
 
     def train(self):
         """Trains the SinGAN architecture."""
@@ -115,7 +136,7 @@ class SinGAN():
         pyr = pyramid(self.img, shapes, self.device)
 
         # Init sigmas
-        sigma = [1.0]
+        self.sigma = [1.0]
 
         # Train each scale one after the other
         start = self.trained_scale+1
@@ -129,10 +150,10 @@ class SinGAN():
                     # In the paper they said only once, however, in their code
                     # they do it every iteration for the first scale??
                     z_start = torch.randn((1, 3, 25, 25)).to(self.device)
-                    z_recon = [z_start]
+                    self.z_recon = [z_start]
 
                 # Draw noise for this scale
-                z = self.noise(n, self.r, sigma)
+                z = self.noise(n)
 
                 # ---------------------
                 #  Train Discriminator
@@ -144,7 +165,7 @@ class SinGAN():
                     real_validity = self.D[n-1](real_img)
 
                     # Sample only for the current scale
-                    fake_img = self.sample_img(n, self.r, z=z)[-1]
+                    fake_img = self.sample_img(n, z=z)[-1]
 
                     # Fake images
                     fake_validity = self.D[n-1](fake_img.detach())
@@ -164,7 +185,7 @@ class SinGAN():
                     self.G[n-1].optimizer.zero_grad()
 
                     # Generate a batch of images
-                    fake_img = self.sample_img(n, self.r, z=z)[-1]
+                    fake_img = self.sample_img(n, z=z)[-1]
 
                     # Loss measures generator's ability to fool the discriminator
                     # Train on fake images
@@ -175,7 +196,7 @@ class SinGAN():
                     g_loss.backward(retain_graph=True)
 
                     # Reconstruction image
-                    recon_img = self.sample_img(n, self.r, z=z_recon)[-1]
+                    recon_img = self.sample_img(n, z=self.z_recon)[-1]
 
                     # Reconstruction loss
                     loss = self.alpha*self.criterion(recon_img, real_img)
@@ -215,18 +236,28 @@ class SinGAN():
 
             if n < self.N:
                 # Calculate the RMSE to get the next sigma_n
-                recon_img = self.sample_img(n, self.r, z=z_recon)[-1]
+                recon_img = self.sample_img(n, z=self.z_recon)[-1]
                 upsample = torch.nn.Upsample(size=tuple(shapes[n]), mode='bilinear', align_corners=True)
 
                 recon_img  = upsample(recon_img)
                 rmse = torch.sqrt(self.criterion(recon_img, pyr[n]))
-                sigma.append(rmse.item()*0.1)
+                self.sigma.append(rmse.item()*0.1)
 
                 # Add zero noise map to reconstructions noise maps
-                z_recon.append(torch.zeros((1, 3,) + shapes[n], device=self.device))
+                self.z_recon.append(torch.zeros((1, 3,) + shapes[n], device=self.device))
 
             # Update trained scale
             self.trained_scale = n
 
             # Save models
             self.save()
+
+    def generate(self, num_imgs, shape):
+        """Generates new images."""
+        imgs = []
+
+        for i in range(num_imgs):
+            img = self.sample_img(self.N)
+            imgs.append(imgs)
+
+        return imgs
