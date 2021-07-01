@@ -4,7 +4,7 @@ import torch.nn as nn
 from skimage import io
 import numpy as np
 from src.architecture import Generator, Discriminator
-from src.image import pyramid, load_img, plot_pyr, get_pyr_shapes
+from src.image import pyramid, load_img, plot_pyr, get_pyr_shapes, gaussian_smoothing
 from skimage.color import rgb2lab, lab2rgb
 import src.util as util
 import matplotlib.pyplot as plt
@@ -15,7 +15,7 @@ TRAIN_PATH = './train'
 class SinGAN:
     """Generative model which uses only on image to train on."""
 
-    def __init__(self, device, lr, lam, alpha, iters, sample_interval,  network_iters, path):
+    def __init__(self, device, lr, lam, alpha, iters, sample_interval,  network_iters, path, rmse_factor=0.1):
         """Constructor
 
         Args:
@@ -27,6 +27,7 @@ class SinGAN:
             sample_interval (int): iteration intervals to sample test images
             network_iters (int): iterations per network update
             path (str): image path
+            rmse_factor (float): Scaling factor for rmse error
         """
 
         # Init variables
@@ -40,6 +41,7 @@ class SinGAN:
         self.criterion = nn.MSELoss()
         self.zero_pad = nn.ZeroPad2d(5)
         self.trained_scale = 0
+        self.rmse_factor = rmse_factor
 
         self.sigma = [1.0]
         self.z_recon = []
@@ -270,7 +272,7 @@ class SinGAN:
 
                 recon_img  = upsample(recon_img)
                 rmse = torch.sqrt(self.criterion(recon_img, pyr[n]))
-                self.sigma.append(rmse.item()*0.1)
+                self.sigma.append(rmse.item()*self.rmse_factor)
 
                 # Add zero noise map to reconstructions noise maps
                 self.z_recon.append(torch.zeros((1, 3,) + shapes[n], device=self.device))
@@ -318,9 +320,13 @@ class SinGAN:
         width = 25*self.r**(injection_scale-1)
 
         if H > W:
-            shape = (width, width*img_ratio)
+            shape = (int(width), int(width*img_ratio))
         else:
-            shape = (width*img_ratio, width)
+            shape = (int(width*img_ratio), int(width))
+
+        # Downscale clip_art
+        clip_art = gaussian_smoothing(clip_art, self.device)
+        clip_art = torch.nn.functional.interpolate(clip_art, size=shape, mode='bicubic')
 
         # Sample image
         img = self.sample_img(self.trained_scale, shape=shape, start=injection_scale, start_img=clip_art)[-1]

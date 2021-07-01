@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--device', type=str, default='cuda', help='cuda or cpu')
 parser.add_argument('--path', type=str, default='./assets/clip_art.png', help='path to clip art image')
 parser.add_argument('--save_path', type=str, default='./train', help='path to save images')
-parser.add_argument('--injection_scale', type=int, default=1, help='injection_scale scale, from 0 to N')
+parser.add_argument('--scale', type=int, default=2, help='injection_scale scale, from 0 to N')
 
 # Get arguments
 args = parser.parse_args()
@@ -21,7 +21,7 @@ args = parser.parse_args()
 # Init variables
 device = torch.device('cuda:0') if args.device=='cuda' else torch.device('cpu')
 path = args.path
-injection_scale = args.injection_scale
+injection_scale = args.scale
 
 # Load clip art image
 clip_art = load_img(path, device)
