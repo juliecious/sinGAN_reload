@@ -90,7 +90,7 @@ class SinGAN:
             noise_shape = noise_shape*self.r
         return z
 
-    def sample_img(self, N, shape=(25, 25), z=None):
+    def sample_img(self, N, shape=(25, 25), z=None, start=0, start_img=None):
         """Samples an image from the SinGAN.
 
         Args:
@@ -107,10 +107,14 @@ class SinGAN:
 
         # First scale only receives noise
         x = []
-        x_n = torch.zeros(z[0].shape).to(self.device)
+        if start_img is None:
+            x_n = torch.zeros(z[0].shape).to(self.device)
+        else:
+            # Or use the start image if given for paint to image task
+            x_n = start_img
 
         # Go through all scales and create image
-        for n in range(N):
+        for n in range(start, N):
             upsample = torch.nn.Upsample(size=tuple(z[n].shape[2:]), mode='bilinear', align_corners=True)
 
             x_n = upsample(x_n)
@@ -294,6 +298,31 @@ class SinGAN:
 
         # Sample images
         imgs = [self.sample_img(self.trained_scale, shape=shape)[-1] for _ in range(num_imgs)]
-        print(imgs[0].shape)
 
         return imgs
+
+    def paint_to_img(self, clip_art, start=1):
+        """Transforms a clip art into a realistic image using SinGAN
+
+        Args:
+            clip_art (torch.tensor): (B, C, H, W) clip art image
+            start (int, optional): Start scale to inject clip art into. Defaults to 1.
+
+        Returns:
+            torch.tensor: realistic image
+        """
+
+        # Get start shape, ratio of painted image should be preserved
+        H, W = clip_art.shape[2:]
+        img_ratio = min(H,W)/max(H,W)
+        width = 25*self.r**(start-1)
+
+        if H > W:
+            shape = (width, width*img_ratio)
+        else:
+            shape = (width*img_ratio, width)
+
+        # Sample image
+        img = self.sample_img(self.trained_scale, shape=shape, start=start, start_img=clip_art)[-1]
+
+        return img
