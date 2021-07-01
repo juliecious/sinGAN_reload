@@ -1,4 +1,4 @@
-"""Generate new images using a trained SinGAN."""
+"""Inject a given image into the SinGAN. This can be used for Super-Resolution, Paint-to-Image, Harmonization and Editiing."""
 import torch
 from src.singan import SinGAN
 import argparse
@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--device', type=str, default='cuda', help='cuda or cpu')
 parser.add_argument('--path', type=str, default='./assets/clip_art.png', help='path to clip art image')
 parser.add_argument('--save_path', type=str, default='./train', help='path to save images')
-parser.add_argument('--start', type=int, default=1, help='start scale, normally 1 or 2')
+parser.add_argument('--injection_scale', type=int, default=1, help='injection_scale scale, from 0 to N')
 
 # Get arguments
 args = parser.parse_args()
@@ -21,7 +21,7 @@ args = parser.parse_args()
 # Init variables
 device = torch.device('cuda:0') if args.device=='cuda' else torch.device('cpu')
 path = args.path
-start = args.start
+injection_scale = args.injection_scale
 
 # Load clip art image
 clip_art = load_img(path, device)
@@ -38,7 +38,7 @@ if not singan.trained_scale == singan.N:
     input('Press enter to continue')
 
 # Generate new images
-img = singan.paint_to_img(clip_art, start=1)
+img = singan.paint_to_img(clip_art, injection_scale=injection_scale)
 
 # Save images use as name the current date
 now = datetime.now()

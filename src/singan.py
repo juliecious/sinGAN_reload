@@ -301,12 +301,12 @@ class SinGAN:
 
         return imgs
 
-    def paint_to_img(self, clip_art, start=1):
+    def paint_to_img(self, clip_art, injection_scale=1):
         """Transforms a clip art into a realistic image using SinGAN
 
         Args:
             clip_art (torch.tensor): (B, C, H, W) clip art image
-            start (int, optional): Start scale to inject clip art into. Defaults to 1.
+            injection_scale (int, optional): Start scale to inject clip art into. Defaults to 1.
 
         Returns:
             torch.tensor: realistic image
@@ -315,7 +315,7 @@ class SinGAN:
         # Get start shape, ratio of painted image should be preserved
         H, W = clip_art.shape[2:]
         img_ratio = min(H,W)/max(H,W)
-        width = 25*self.r**(start-1)
+        width = 25*self.r**(injection_scale-1)
 
         if H > W:
             shape = (width, width*img_ratio)
@@ -323,6 +323,6 @@ class SinGAN:
             shape = (width*img_ratio, width)
 
         # Sample image
-        img = self.sample_img(self.trained_scale, shape=shape, start=start, start_img=clip_art)[-1]
+        img = self.sample_img(self.trained_scale, shape=shape, start=injection_scale, start_img=clip_art)[-1]
 
         return img
