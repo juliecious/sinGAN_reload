@@ -16,6 +16,11 @@ def load_img(path, device):
     """Load image as tensor with shape [C, H, W]."""
     img = io.imread(path)
 
+    # Check for alpha channel:
+    if img.shape[2] == 4:
+        print('Image has an alpha channel, it will be discarded!')
+        img = img[:,:,:3]
+
     # Convert to lab space
     img = rgb2lab(img)
 
