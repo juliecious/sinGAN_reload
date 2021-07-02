@@ -9,6 +9,7 @@ from skimage.color import rgb2lab, lab2rgb
 import src.util as util
 import matplotlib.pyplot as plt
 import pickle
+import os
 
 TRAIN_PATH = './train'
 
@@ -61,6 +62,10 @@ class SinGAN:
             max_dim = 0
             self.N = 0
             self.r = 0
+
+        # Create train folder if it does not exist
+        if not os.path.exists(TRAIN_PATH):
+            os.mkdir(TRAIN_PATH)
 
         # Init generators and discriminators
         self.G = [Generator(32*(int(i/4)+1), lr).to(self.device) for i in range(self.N)]
