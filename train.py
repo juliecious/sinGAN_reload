@@ -13,6 +13,7 @@ parser.add_argument('--lam', type=float, default=0.1, help='lambda parameter for
 parser.add_argument('--network_iters', type=int, default=3, help='iterations per network update')
 parser.add_argument('--alpha', type=int, default=10, help='reconstruction loss weight')
 parser.add_argument('--path', type=str, default='./assets/new_york.jpg', help='image path')
+parser.add_argument('--load', default=False, action='store_true', help='load current network')
 
 # Get arguments
 args = parser.parse_args()
@@ -28,6 +29,10 @@ alpha = args.alpha
 
 # Create SinGAN model
 singan = SinGAN(device, lr, lam, alpha, iters, sample_interval,  network_iters, args.path)
+
+# Load current network if using load
+if args.load:
+    singan.load()
 
 # Train SinGAN
 singan.train()
