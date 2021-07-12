@@ -54,8 +54,10 @@ class SinGAN:
 
             # Based on the paper, we choose the parameters that the
             # coarsest scale is 25px and r is as near as possible to 4/3
-            self.N = int(np.round(np.log(max_dim/25)/np.log(4/3) + 1))
-            self.r = (max_dim/25)**(1/(self.N-1))
+            coarsest_scale = 25
+            r_desired = 5/4
+            self.N = int(np.round(np.log(max_dim/coarsest_scale)/np.log(r_desired) + 1))
+            self.r = (max_dim/coarsest_scale)**(1/(self.N-1))
             print(f'Number of scales: {self.N} and scale factor: {self.r}')
         else:
             self.img = None
@@ -110,7 +112,7 @@ class SinGAN:
         """
         # Sample noise maps if not present
         if z is None:
-            z = self.noise(N, shape=shape)
+            z = self.noise(N)
 
         # First scale only receives noise
         x = []
@@ -274,7 +276,7 @@ class SinGAN:
                 # Calculate the RMSE to get the next sigma_n
                 recon_img = self.sample_img(n, z=self.z_recon)[-1]
                 upsample = torch.nn.Upsample(size=tuple(shapes[n]), mode='bilinear', align_corners=True)
-
+# 
                 recon_img  = upsample(recon_img)
                 rmse = torch.sqrt(self.criterion(recon_img, pyr[n]))
                 self.sigma.append(rmse.item()*self.rmse_factor)
@@ -334,6 +336,6 @@ class SinGAN:
         clip_art = torch.nn.functional.interpolate(clip_art, size=shape, mode='bicubic')
 
         # Sample image
-        img = self.sample_img(self.trained_scale, shape=shape, start=injection_scale, start_img=clip_art)[-1]
+        img = self.sample_img(self.trained_scale, shape=shape, start=injection_scale, start_img=clip_art, z=self.z_recon)[-1]
 
         return img

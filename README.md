@@ -41,10 +41,16 @@ Use `--help` to get information about other possible arguments.
 
 After training, you will need an abstract clip art of the desired image. Then you can use:
 ```bash
-python inject.py --path ./assets/[clip_art_name]
+python inject.py --path ./assets/[clip_art_name] --scale 1
 ```
 
-The resulting image will also be saved under ./train.
+Use scales [0-2]. The resulting image will also be saved under ./train.
 
 ## Harmonization
-...
+
+Train with the base image. After training, you will need the combined image. Then you can use:
+```bash
+python inject.py --path ./assets/[clip_art_name] --scale N
+```
+
+Use higher scales. The resulting image will also be saved under ./train.
