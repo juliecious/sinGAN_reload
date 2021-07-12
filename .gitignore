@@ -1,6 +1,6 @@
 __pycache__/
-*.jpg
-*.png
+assets/*.jpg
+assets/*.png
 .vscode
 train/
 train*/
