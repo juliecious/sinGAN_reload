@@ -168,7 +168,7 @@ class SinGAN:
             self.D[i].load(TRAIN_PATH + f'/D_{i}.pt')
         print(f'Loaded SinGAN, model was trained up to scale {self.trained_scale-1} of {self.N-1}!')
 
-    def train(self):
+    def train(self, window=None):
         """Trains the SinGAN architecture."""
         # Get image pyramid scales
         shapes = get_pyr_shapes(self.N, self.r)
@@ -246,6 +246,12 @@ class SinGAN:
                         "[Scale %d/%d] [Iter %d/%d] [D loss: %f] [G loss: %f]"
                         % (n-1, self.N-1, i, self.iters, d_loss.item(), g_loss.item())
                     )
+
+                    # Update also window ui
+                    if window is not None:
+                        window['-TRAIN_OUT-'].update(value=f'[Scale {n-1}/{self.N-1}] [Iter {i}/{self.iters}] [D loss:{np.round(d_loss.item(), 3)}] [G loss: {np.round(g_loss.item(), 3)}]')
+                        window.refresh()
+
 
                 if i % self.sample_interval == 0:
                     # Save sampled image

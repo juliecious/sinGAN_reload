@@ -27,6 +27,16 @@ Depending on the hardware the training takes about 1-2 hours. To train only on t
 During training, a ./train folder with all network weights should be created. That's the default folder
 and all other scripts will search for it.
 
+# User Interface
+
+To use the UI instead, execute:
+
+```bash
+python ui.py
+```
+
+You can set the hyperparameters of the algorithm like in training via extra arguments. Use `--help` to get information about other possible arguments.
+
 ## Generating new images
 
 After training, you can create new images using:
