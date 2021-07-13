@@ -4,6 +4,8 @@ import io
 from numpy.core.fromnumeric import size
 from src.singan import SinGAN
 from PIL import Image
+from skimage.color import rgb2lab, lab2rgb
+import numpy as np
 import PySimpleGUI as sg
 import torch
 import argparse
@@ -29,6 +31,7 @@ sample_interval = args.sample_interval
 lam = args.lam
 network_iters = args.network_iters
 alpha = args.alpha
+shape = (250, 250)
 
 # Set window layout
 selection = [
@@ -44,7 +47,7 @@ train_img = [
 
 generation = [
     [sg.Text('Generated Image:'),],
-    [sg.Image(background_color='white',size=(250, 250), key='-IMAGE-')],
+    [sg.Image(background_color='white',size=(250, 250), key='-GENERATED-')],
 ]
 
 actions = [
@@ -60,9 +63,11 @@ layout = [
     [
         sg.Column(train_img),
         sg.VSeperator(),
+        sg.Column(generation),
+        sg.VSeperator(),
         sg.Column(actions),
     ],
-    [sg.Text('', size=(50, 1), key='-TRAIN_OUT-')]
+    [sg.Text('Currently nothing loaded!', size=(80, 1), key='-TRAIN_OUT-')]
 ]
 
 # Create window
@@ -103,9 +108,16 @@ while True:
             # Update window
             window['-IMAGE-'].update(data=bits.getvalue())
 
+            # Update text
+            window['-TRAIN_OUT-'].update(value='Image loaded!')
+
     if event == '-LOAD-':
         # Disable Button
         window['-LOAD-'].update(disabled=True)
+
+        # Show loading image
+        window['-IMAGE-'].update(data=bits_loading.getvalue())
+        window.refresh()
 
         # Create dummy singan
         singan = SinGAN(device, 0.1, 0.1, 10, 1, 1, 1, None)
@@ -113,11 +125,63 @@ while True:
         # Load SinGAN
         singan.load()
 
+        # Convert image into PIL img
+        img = singan.img[0].cpu().detach().permute(1, 2, 0)
+        img = img.numpy()
+        img[:,:,0] += 1
+        img[:,:,0] *= 50
+        img[:,:,1:] *= 127.5
+        img[:,:,1:] -= 0.5
+        img = (lab2rgb(img)*255).astype(np.uint8)
+        img = Image.fromarray(np.uint8(img)).convert('RGB')
+
+        # Display loaded image
+        img.thumbnail((250, 250))
+        bits = io.BytesIO()
+        img.save(bits, format='PNG')
+        window['-IMAGE-'].update(data=bits.getvalue())
+        window['-GENERATE-'].update(disabled=False)
+
+        # Update text
+        window['-TRAIN_OUT-'].update(value='Model loaded!')
+
     if event == '-TRAIN-':
         # Disable Buttons
         window['-TRAIN-'].update(disabled=True)
         window['-LOAD-'].update(disabled=True)
+        window.refresh()
 
         # Start training
         singan.train(window=window)
-    
+
+        # Enable Buttons
+        window['-TRAIN-'].update(disabled=False)
+        window['-LOAD-'].update(disabled=False)
+        window['-GENERATE-'].update(disabled=False)
+
+    if event == '-GENERATE-':
+        # Disable Buttons
+        window['-GENERATE-'].update(disabled=True)
+        window.refresh()
+
+        # Generate new images
+        img = singan.generate(1, shape)[0]
+
+        # Convert image to PIL
+        img = img[0].cpu().detach().permute(1, 2, 0)
+        img = img.numpy()
+        img[:,:,0] += 1
+        img[:,:,0] *= 50
+        img[:,:,1:] *= 127.5
+        img[:,:,1:] -= 0.5
+        img = (lab2rgb(img)*255).astype(np.uint8)
+        img = Image.fromarray(np.uint8(img)).convert('RGB')
+
+        # Display generated image
+        img.thumbnail((250, 250))
+        bits = io.BytesIO()
+        img.save(bits, format='PNG')
+        window['-GENERATED-'].update(data=bits.getvalue())
+
+        # Disable Buttons
+        window['-GENERATE-'].update(disabled=False)

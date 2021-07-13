@@ -249,7 +249,7 @@ class SinGAN:
 
                     # Update also window ui
                     if window is not None:
-                        window['-TRAIN_OUT-'].update(value=f'[Scale {n-1}/{self.N-1}] [Iter {i}/{self.iters}] [D loss:{np.round(d_loss.item(), 3)}] [G loss: {np.round(g_loss.item(), 3)}]')
+                        window['-TRAIN_OUT-'].update(value=f'TRAINING: [Scale {n-1}/{self.N-1}] [Iter {i}/{self.iters}] [D loss:{np.round(d_loss.item(), 3)}] [G loss: {np.round(g_loss.item(), 3)}]')
                         window.refresh()
 
 
@@ -282,7 +282,7 @@ class SinGAN:
                 # Calculate the RMSE to get the next sigma_n
                 recon_img = self.sample_img(n, z=self.z_recon)[-1]
                 upsample = torch.nn.Upsample(size=tuple(shapes[n]), mode='bilinear', align_corners=True)
-# 
+
                 recon_img  = upsample(recon_img)
                 rmse = torch.sqrt(self.criterion(recon_img, pyr[n]))
                 self.sigma.append(rmse.item()*self.rmse_factor)
