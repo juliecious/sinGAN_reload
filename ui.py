@@ -1,10 +1,10 @@
 import os
 import io
 
-from numpy.core.fromnumeric import size
 from src.singan import SinGAN
 from PIL import Image
 from skimage.color import rgb2lab, lab2rgb
+from src.image import load_img
 import numpy as np
 import PySimpleGUI as sg
 import torch
@@ -19,6 +19,7 @@ parser.add_argument('--sample_interval', type=int, default=500, help='iteration 
 parser.add_argument('--lam', type=float, default=0.1, help='lambda parameter for gradient penalty')
 parser.add_argument('--network_iters', type=int, default=3, help='iterations per network update')
 parser.add_argument('--alpha', type=int, default=10, help='reconstruction loss weight')
+parser.add_argument('--scale', type=int, default=2, help='injection_scale scale, from 0 to N')
 
 # Get arguments
 args = parser.parse_args()
@@ -32,12 +33,19 @@ lam = args.lam
 network_iters = args.network_iters
 alpha = args.alpha
 shape = (250, 250)
+injection_scale = args.scale
 
 # Set window layout
 selection = [
     sg.Text('Select an image for training: '),
     sg.Input(size=(35, 1), disabled=True, enable_events=True, key="-FILE-"),
     sg.FileBrowse(),
+]
+
+injection = [
+    sg.Text('Select an image for injection: '),
+    sg.Input(size=(35, 1), disabled=True, enable_events=True, key="-PATH_INJECTED-"),
+    sg.FileBrowse(disabled=True, key="-FILE_INJECTED-"),
 ]
 
 train_img = [
@@ -55,11 +63,12 @@ actions = [
     [sg.Button('Load', disabled=False, size=(10, 1), tooltip='Loads an already trained SinGAN model', key='-LOAD-')],
     [sg.Button('Train', disabled=True, size=(10, 1), tooltip='Train the SinGAN', key='-TRAIN-')],
     [sg.Button('Generate', disabled=True, size=(10, 1), tooltip='Generate new images', key='-GENERATE-')],
-    [sg.Button('Inject', disabled=True, size=(10, 1), tooltip='Inject image into SinGAN (for Paint-to-Image and Harmonization)')],
+    [sg.Button('Inject', disabled=True, size=(10, 1), tooltip='Inject image into SinGAN (for Paint-to-Image and Harmonization)', key='-INJECT-')],
 ]
 
 layout = [
     selection,
+    injection,
     [
         sg.Column(train_img),
         sg.VSeperator(),
@@ -104,6 +113,9 @@ while True:
 
             # Update button
             window['-TRAIN-'].update(disabled=False)
+            window['-GENERATE-'].update(disabled=True)
+            window['-INJECT-'].update(disabled=True)
+            window['-FILE_INJECTED-'].update(disabled=True)
 
             # Update window
             window['-IMAGE-'].update(data=bits.getvalue())
@@ -141,6 +153,8 @@ while True:
         img.save(bits, format='PNG')
         window['-IMAGE-'].update(data=bits.getvalue())
         window['-GENERATE-'].update(disabled=False)
+        window['-INJECT-'].update(disabled=False)
+        window['-FILE_INJECTED-'].update(disabled=False)
 
         # Update text
         window['-TRAIN_OUT-'].update(value='Model loaded!')
@@ -158,6 +172,8 @@ while True:
         window['-TRAIN-'].update(disabled=False)
         window['-LOAD-'].update(disabled=False)
         window['-GENERATE-'].update(disabled=False)
+        window['-INJECT-'].update(disabled=False)
+        window['-FILE_INJECTED-'].update(disabled=False)
 
     if event == '-GENERATE-':
         # Disable Buttons
@@ -185,3 +201,35 @@ while True:
 
         # Disable Buttons
         window['-GENERATE-'].update(disabled=False)
+
+    if event == '-INJECT-':
+        # Disable Buttons
+        window['-INJECT-'].update(disabled=True)
+        window['-FILE_INJECTED-'].update(disabled=True)
+        window.refresh()
+
+        path = values['-PATH_INJECTED-']
+        if os.path.exists(path):
+            # Load Injection file and inject it
+            clip_art = load_img(path, device)
+            img = singan.paint_to_img(clip_art, injection_scale=injection_scale)
+
+            # Convert image to PIL
+            img = img[0].cpu().detach().permute(1, 2, 0)
+            img = img.numpy()
+            img[:,:,0] += 1
+            img[:,:,0] *= 50
+            img[:,:,1:] *= 127.5
+            img[:,:,1:] -= 0.5
+            img = (lab2rgb(img)*255).astype(np.uint8)
+            img = Image.fromarray(np.uint8(img)).convert('RGB')
+
+            # Display generated image
+            img.thumbnail((250, 250))
+            bits = io.BytesIO()
+            img.save(bits, format='PNG')
+            window['-GENERATED-'].update(data=bits.getvalue())
+
+        # Disable Buttons
+        window['-INJECT-'].update(disabled=False)
+        window['-FILE_INJECTED-'].update(disabled=False)
